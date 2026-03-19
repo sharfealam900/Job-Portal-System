@@ -3,8 +3,9 @@ import { Navbar } from './shared/Navbar'
 import Filtercard from './Filtercard';
 import Job from './Job';
 import { useSelector } from 'react-redux';
-import useGetAllJobs from '../hooks/useGetAllJobs';
+
 import { motion } from 'framer-motion';
+import useGetAllJobs from '../hooks/useGetAllJobs';
 
 
 const Jobs = () => {

@@ -4,12 +4,14 @@ import HeroSection from './HeroSection'
 import CategoryCarousel from './CategoryCarousel'
 import Latestjobs from './Latestjobs'
 import Footer from './Footer'
-import useGetAlljobs from '../hooks/useGetAllJobs'
+
 import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
+import useGetAllJobs from '../hooks/useGetAllJobs'
+
 
 const Home = () => {
-  useGetAlljobs();
+  useGetAllJobs();
   const {user}=useSelector(store=>store.auth);
   const navigate=useNavigate();
   useEffect(() =>{
@@ -21,6 +23,7 @@ const Home = () => {
   return (
     <div>
         <Navbar/>
+
         <HeroSection/>
         <CategoryCarousel/>
         <Latestjobs/>      
