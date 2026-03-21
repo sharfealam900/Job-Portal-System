@@ -10,9 +10,6 @@ import applicationRoute from "./routes/application.route.js"
 import subscriberRoute from "./routes/subscriber.route.js";
 import morgan from "morgan";
 
-
-
-
 dotenv.config({});
 
 const app = express();
@@ -27,7 +24,8 @@ const corsOptions = {
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:5175",
-        "http://localhost:5177" 
+        "http://localhost:5177",
+        "https://job-portal-system-sharfealam900s-projects.vercel.app"
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"]

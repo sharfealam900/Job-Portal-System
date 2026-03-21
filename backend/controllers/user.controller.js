@@ -1,20 +1,34 @@
 import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 import getDataUri from "../utils/datauri.js";
 import cloudinary from "../utils/cloudinary.js";
 
-
+//REGISTER 
 export const register = async (req, res) => {
     try {
+        console.log("📩 REGISTER BODY:", req.body);
+
         const { fullname, email, phoneNumber, password, role } = req.body;
+
+        // 
         if (!fullname || !email || !phoneNumber || !password || !role) {
             return res.status(400).json({
-                message: "Something is missing",
+                message: "All fields are required",
                 success: false
             });
-        };
+        }
 
+    
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({
+                message: "User already exists with this email",
+                success: false
+            });
+        }
+
+        
         const file = req.file;
         let cloudResponse;
 
@@ -23,123 +37,165 @@ export const register = async (req, res) => {
             cloudResponse = await cloudinary.uploader.upload(fileUri.content);
         }
 
-        const user = await User.findOne({ email });
-        if (user) {
-            return res.status(400).json({
-                message: "User already exits with this email",
-                success: false,
-            });
-        }
+    
         const hashedPassword = await bcrypt.hash(password, 10);
+
+        
         await User.create({
             fullname,
             email,
             phoneNumber,
             password: hashedPassword,
-            role,
+            role: role.toLowerCase().trim(),
             profile: {
                 profilePhoto: cloudResponse ? cloudResponse.secure_url : "",
             }
         });
 
+        console.log("✅ User registered:", email);
+
         return res.status(201).json({
-            message: "Account is created Successfully",
+            message: "Account created successfully",
             success: true
         });
 
     } catch (error) {
-        console.log(error);
+        console.log("🔥 REGISTER ERROR:", error.message);
         return res.status(500).json({
             message: "Internal Server Error",
             success: false
         });
     }
-}
+};
 
+
+//  LOGIN 
 export const Login = async (req, res) => {
     try {
-        const { email, password, role } = req.body;
-        if (!email || !password || !role) {
-            return res.status(400).json({
-                message: "Something is missing",
-                success: false
-            });
-        };
+        console.log("==== LOGIN DEBUG START ====");
+        console.log("📩 Request Body:", req.body);
 
-        let user = await User.findOne({ email });
-        if (!user) {
+        const { email, password, role } = req.body;
+
+    
+        if (!email || !password || !role) {
+            console.log("❌ Missing fields");
             return res.status(400).json({
-                message: "incorrect Email or Password",
+                message: "All fields are required",
                 success: false
             });
         }
+
+      
+        let user = await User.findOne({ email });
+
+        if (!user) {
+            console.log("❌ User not found:", email);
+            return res.status(400).json({
+                message: "Incorrect email or password",
+                success: false
+            });
+        }
+
+        console.log("✅ User found:", user.email);
+
+        
         const isPasswordMatch = await bcrypt.compare(password, user.password);
+
         if (!isPasswordMatch) {
+            console.log("❌ Password mismatch");
             return res.status(400).json({
-                message: "incorrect Email or Password",
+                message: "Incorrect email or password",
                 success: false
             });
-        };
-        if (role != user.role) {
+        }
+
+       
+        const frontendRole = role.toLowerCase().trim();
+        const dbRole = user.role.toLowerCase().trim();
+
+        console.log("🔍 Role Check:");
+        console.log("Frontend Role:", frontendRole);
+        console.log("DB Role:", dbRole);
+
+        if (frontendRole !== dbRole) {
+            console.log("❌ Role mismatch");
             return res.status(400).json({
-                message: "Account does not exist with current role",
+                message: "Account does not exist with this role",
                 success: false
             });
-        };
+        }
 
-
+      
         const tokenData = {
             userId: user._id
-        }
-        const token = await jwt.sign(tokenData, process.env.SECRET_KEY, { expiresIn: '1d' });
+        };
 
-        user = {
+        const token = jwt.sign(tokenData, process.env.SECRET_KEY, {
+            expiresIn: "1d"
+        });
+
+        
+        const safeUser = {
             _id: user._id,
             fullname: user.fullname,
             email: user.email,
             phoneNumber: user.phoneNumber,
             role: user.role,
             profile: user.profile
-        }
+        };
 
-        return res.status(200).cookie("token", token, {
-            maxAge: 1 * 24 * 60 * 60 * 1000,
-            httpOnly: true,
-            sameSite: "strict"
-        }).json({
-            message: `Welcome back ${user.fullname}`,
-            user,
-            success: true
-        })
+        console.log("✅ Login successful:", safeUser.email);
+
+        return res.status(200)
+            .cookie("token", token, {
+                httpOnly: true,
+                sameSite: "strict",
+                maxAge: 1 * 24 * 60 * 60 * 1000
+            })
+            .json({
+                message: `Welcome back ${safeUser.fullname}`,
+                user: safeUser,
+                success: true
+            });
 
     } catch (error) {
-        console.log(error)
+        console.log("🔥 LOGIN ERROR:", error.message);
+        return res.status(500).json({
+            message: "Internal Server Error",
+            success: false
+        });
     }
-}
+};
+
+
 
 export const logout = async (req, res) => {
     try {
-        return res.status(200).cookie("token", "", { maxAge: 0 }).json({
-            message: "Account is logout Successfully",
-            success: true
-        });
-
+        return res.status(200)
+            .cookie("token", "", { maxAge: 0 })
+            .json({
+                message: "Logged out successfully",
+                success: true
+            });
     } catch (error) {
-        console.log(error)
+        console.log("🔥 LOGOUT ERROR:", error.message);
     }
-}
+};
+
 
 
 export const updateProfile = async (req, res) => {
     try {
-        console.log("BODY:", req.body);
-        console.log("FILE:", req.file);
-        console.log("USER ID:", req.id);
+        console.log("📩 UPDATE BODY:", req.body);
+        console.log("📁 FILE:", req.file);
+        console.log("👤 USER ID:", req.id);
 
         const { fullname, email, phoneNumber, bio, skills } = req.body;
         const file = req.file;
 
         const userId = req.id;
+
         let user = await User.findById(userId);
 
         if (!user) {
@@ -149,21 +205,23 @@ export const updateProfile = async (req, res) => {
             });
         }
 
-        // ensure profile exists
+  
         if (!user.profile) {
             user.profile = {};
         }
 
+        
         user.fullname = fullname || user.fullname;
         user.email = email || user.email;
         user.phoneNumber = phoneNumber || user.phoneNumber;
         user.profile.bio = bio || user.profile.bio;
 
+        
         if (skills && user.role === "student") {
             user.profile.skills = skills.split(",").map(s => s.trim());
         }
 
-        // ONLY upload if file exists
+        
         if (file) {
             const fileUri = getDataUri(file);
 
@@ -178,6 +236,8 @@ export const updateProfile = async (req, res) => {
 
         await user.save();
 
+        console.log("✅ Profile updated");
+
         return res.status(200).json({
             message: "Profile updated successfully",
             user,
@@ -185,9 +245,7 @@ export const updateProfile = async (req, res) => {
         });
 
     } catch (error) {
-        console.log("UPDATE PROFILE ERROR:");
-        console.log(error);
-        console.log(error.message);
+        console.log("🔥 UPDATE ERROR:", error.message);
 
         return res.status(500).json({
             message: error.message,
@@ -195,4 +253,3 @@ export const updateProfile = async (req, res) => {
         });
     }
 };
-
